@@ -10,7 +10,7 @@ const kafka = new Kafka({
   clientId: 'protobuf-consumer',
   brokers: ["my-cluster-kafka-bootstrap.kafka:9092"],
   sasl: {
-    mechanism: 'plain',
+    mechanism: 'scram-sha-512',
     username: process.env.KAFKA_USERNAME,
     password: process.env.KAFKA_PASSWORD,
   },
