@@ -16,10 +16,14 @@ const kafka = new Kafka({
   },
 });
 
+// ✅ Consumer + Producer
 const consumer = kafka.consumer({
   groupId: 'protobuf-consumer-group',
 });
 
+const producer = kafka.producer(); // ✅ NEW
+
+// ✅ Schema Registry
 const registry = new SchemaRegistry({
   host: process.env.SCHEMA_REGISTRY_URL,
   auth: {
@@ -28,29 +32,46 @@ const registry = new SchemaRegistry({
   },
 });
 
-const TOPIC = process.env.PROTOBUF_TOPIC;
+// ✅ Topics from .env
+const PROTOBUF_TOPIC = process.env.PROTOBUF_TOPIC;
+const JSON_TOPIC = process.env.JSON_TOPIC;
 
 // 🚀 Run consumer
 async function run() {
   try {
     await consumer.connect();
+    await producer.connect(); // ✅ CONNECT PRODUCER
+
     console.log('✅ Kafka Connected');
 
-    await consumer.subscribe({ topic: TOPIC, fromBeginning: true });
-    console.log(`📡 Subscribed to topic: ${TOPIC}`);
+    await consumer.subscribe({ topic: PROTOBUF_TOPIC, fromBeginning: true });
+    console.log(`📡 Subscribed to topic: ${PROTOBUF_TOPIC}`);
 
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         try {
-          // 🔥 Decode Protobuf → readable
+          // ✅ Decode Protobuf → JSON
           const decoded = await registry.decode(message.value);
 
-          console.log('-----------------------------');
+          console.log('===================================================\n');
           console.log(`📦 Topic: ${topic}`);
           console.log(`📍 Partition: ${partition}`);
           console.log(`🔑 Key: ${message.key?.toString()}`);
-          console.log('✅ Data:', decoded);
+          console.log('✅ Decoded Data:', decoded);
 
+          // ✅ Send to JSON topic
+          await producer.send({
+            topic: JSON_TOPIC,
+            messages: [
+              {
+                key: message.key?.toString(),
+                value: JSON.stringify(decoded),
+              },
+            ],
+          });
+
+          console.log(`🚀 Sent to topic: ${JSON_TOPIC}`);
+          console.log('===================================================\n');
         } catch (err) {
           console.error('❌ Decode error:', err.message);
         }
